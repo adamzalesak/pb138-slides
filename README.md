@@ -5,13 +5,13 @@ Marp-based slides for PB138 seminars.
 ## Setup
 
 ```bash
-npm install
+bun install
 ```
 
 ## Usage
 
 ```bash
-npm run preview    # live preview
-npm run build:pdf  # export to PDF
-npm run build:html # export to HTML
+bun run preview    # live preview
+bun run build:pdf  # export to PDF
+bun run build:html # export to HTML
 ```
