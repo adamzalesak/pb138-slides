@@ -1,9 +1,9 @@
 {
   "name": "pb138-slides",
   "scripts": {
-    "build:pptx": "marp -I . --pptx --html",
-    "build:pdf": "marp -I . --pdf --html",
-    "build:html": "marp -I . --html",
+    "build:pptx": "marp seminar-*/*.md --pptx --html",
+    "build:pdf": "marp seminar-*/*.md --pdf --html",
+    "build:html": "marp seminar-*/*.md --html",
     "start": "marp -s . --html",
     "preview": "marp -ps --html ."
   },
