@@ -1,0 +1,23 @@
+{
+  "name": "pb138-slides",
+  "version": "1.0.0",
+  "description": "Slides for lectures and seminars",
+  "main": "index.js",
+  "scripts": {
+    "build:pptx": "marp -I . --pptx --html",
+    "build:pdf": "marp -I . --pdf --html",
+    "build:html": "marp -I . --html",
+    "start": "marp -s . --html",
+    "preview": "marp -ps --html .",
+    "ropots": "python3 convert.py",
+    "generate-ropots": "python3 convert.py --generate-only"
+  },
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "@marp-team/marp-cli": "^1.6",
+    "@marp-team/marp-core": "^3.0.2",
+    "markdown-it-highlightjs": "^3.6.0",
+    "markdown-it-plantuml": "^1.4.1"
+  }
+}

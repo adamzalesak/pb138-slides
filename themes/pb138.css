@@ -1,0 +1,66 @@
+/* @theme pb138 */
+
+@import 'default';
+
+section {
+  font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+  background-color: #ffffff;
+  color: #1a1a2e;
+}
+
+section.lead {
+  text-align: center;
+  background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+  color: #e6e6e6;
+}
+
+section.lead h1 {
+  color: #ffffff;
+  font-size: 2.2em;
+}
+
+section.lead h2 {
+  color: #e6e6e6;
+  border-bottom: none;
+}
+
+h1 {
+  color: #1a1a2e;
+  border-bottom: 3px solid #0f3460;
+  padding-bottom: 0.3em;
+}
+
+h2 {
+  color: #0f3460;
+}
+
+h3 {
+  color: #16213e;
+}
+
+code {
+  background-color: #f0f0f5;
+  border-radius: 4px;
+  padding: 0.1em 0.3em;
+  font-size: 0.9em;
+}
+
+pre code {
+  padding: 0;
+  background: none;
+}
+
+a {
+  color: #0f3460;
+}
+
+table {
+  font-size: 0.85em;
+}
+
+blockquote {
+  border-left: 4px solid #0f3460;
+  background: #f0f4ff;
+  padding: 0.5em 1em;
+  border-radius: 0 8px 8px 0;
+}

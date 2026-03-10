@@ -1,0 +1,369 @@
+@import url("https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@100;400;700&family=Poppins:wght@100;400&display=swap");
+@import url("https://unpkg.com/tailwindcss@^2/dist/utilities.min.css");
+
+/*!
+ * Light theme for slides
+ * @theme light
+ *
+ * @auto-scaling false
+ * @size 16:9 1280px 720px
+ */
+
+:root {
+  --dracula-background: #282a36;
+  --dracula-foreground: #f8f8f2;
+  --dracula-comment: #6272a4;
+  --dracula-cyan: #8be9fd;
+  --dracula-green: #50fa7b;
+  --dracula-orange: #ffb86c;
+  --dracula-pink: #ff79c6;
+  --dracula-purple: #bd93f9;
+  --dracula-red: #ff5555;
+  --dracula-yellow: #f1fa8c;
+
+  --one-dark-black: #282c34;
+  --one-dark-red: #e06c75;
+  --one-dark-white: #abb2bf;
+  --one-dark-blue: #61afef;
+
+  --main-font: "Poppins", sans-serif;
+  --code-font: "JetBrains Mono", monospace;
+
+  --primary-color: var(--one-dark-blue);
+
+  --foreground: var(--one-dark-black);
+  --background: #fafafa;
+  --comment-color: var(--one-dark-white);
+  --list-item-color: var(--one-dark-black);
+  --blockquote-color: #313131;
+  --code-color: var(--one-dark-black);
+  --code-background: #f7f7f7;
+  --link-color: var(--primary-color);
+  --muted-border-color: #edf0f3;
+}
+
+
+* {
+  -webkit-font-smoothing: antialiased;
+}
+
+.hljs {
+  color: #4d4d4c;
+  background: #ffffff;
+}
+.hljs-comment,
+.hljs-quote {
+  color: #8e908c;
+  font-style: italic;
+}
+.hljs-doctag,
+.hljs-formula,
+.hljs-keyword {
+  color: #4271ae;
+}
+.hljs-deletion,
+.hljs-name,
+.hljs-section,
+.hljs-selector-tag,
+.hljs-subst {
+  color: #c82829;
+}
+.hljs-literal {
+  color: #f5871f;
+}
+.hljs-addition,
+.hljs-attribute,
+.hljs-meta .hljs-string,
+.hljs-regexp,
+.hljs-string {
+  color: #c82829;
+}
+.hljs-attr,
+.hljs-number,
+.hljs-selector-attr,
+.hljs-selector-class,
+.hljs-selector-pseudo,
+.hljs-template-variable,
+.hljs-type,
+.hljs-variable {
+  color: #d19a66;
+}
+.hljs-bullet,
+.hljs-link,
+.hljs-meta,
+.hljs-selector-id,
+.hljs-symbol,
+.hljs-title {
+  color: #4271ae;
+}
+.hljs-built_in,
+.hljs-class .hljs-title,
+.hljs-title.class_ {
+  color: #8959a8;
+}
+.hljs-emphasis {
+  font-style: italic;
+}
+.hljs-strong {
+  font-weight: 700;
+}
+.hljs-link {
+  text-decoration: underline;
+}
+
+svg[data-marp-fitting="svg"] {
+  max-height: 580px;
+}
+
+h1,
+h2,
+h3,
+h4,
+h5,
+h6 {
+  margin: 0.5em 0 0 0;
+  color: var(--primary-color);
+}
+h1 strong,
+h2 strong,
+h3 strong,
+h4 strong,
+h5 strong,
+h6 strong {
+  font-weight: inherit;
+}
+
+h1 {
+  font-size: 1.8em;
+}
+
+h2 {
+  font-size: 1.5em;
+}
+
+h3 {
+  font-size: 1.3em;
+}
+
+h4 {
+  font-size: 1.1em;
+}
+
+h5 {
+  font-size: 1em;
+}
+
+h6 {
+  font-size: 0.9em;
+}
+
+p,
+blockquote {
+  margin: 1em 0 0 0;
+}
+
+ul > li,
+ol > li {
+  margin: 0.3em 0 0 0;
+  color: var(--list-item-color);
+}
+ul > li > p,
+ol > li > p {
+  margin: 0.6em 0 0 0;
+}
+
+
+code {
+  display: inline-block;
+  font-family: var(--code-font);
+  font-variant-ligatures: none; /* Disable e.g. == turning into ligature in codeblocks */
+  letter-spacing: 0;
+  margin: -0.1em 0.15em;
+  padding: 0.1em 0.2em;
+  vertical-align: baseline;
+  color: var(--code-color);
+}
+
+pre {
+  display: block;
+  margin: 1em 0 0 0;
+  min-height: 1em;
+  overflow: visible;
+}
+pre code {
+  box-sizing: border-box;
+  margin: 0;
+  min-width: 100%;
+  padding: 0.5em;
+  font-size: 1.1em;
+  border: 2px solid #eaeaea;
+  border-radius: 8px;
+  box-shadow:
+    0 4px 6px -1px rgb(0 0 0 / 10%),
+    0 2px 4px -2px rgb(0 0 0 / 10%);
+}
+
+pre code svg[data-marp-fitting="svg"] {
+  max-height: calc(580px - 1em);
+}
+
+blockquote {
+  display: block;
+  margin: 0.5rem 0;
+  padding: 0.5rem;
+  border-right: none;
+  border-left: 0.25rem solid #edf0f3;
+  border-inline-start: 0.25rem solid #edf0f3;
+  border-inline-end: none;
+}
+
+blockquote > * {
+  margin: 0;
+}
+
+cite {
+  display: block;
+  font-size: 0.75em;
+  line-height: 1.8em;
+  margin-top: 1em;
+}
+
+mark {
+  background: transparent;
+}
+
+table {
+  border-spacing: 0;
+  border-collapse: collapse;
+  margin: 1em 0 0 0;
+}
+table th,
+table td {
+  padding: 0.2em 0.4em;
+  border-width: 1px;
+  border-style: solid;
+}
+
+section {
+  font-size: 1.2em;
+  font-family: var(--main-font);
+  line-height: 1.35;
+  letter-spacing: 1.25px;
+  padding: 30px 49px;
+  color: var(--foreground);
+  background-color: var(--background);
+  justify-content: center;
+  display: flex;
+  flex-direction: column;
+}
+
+section.code-lg pre {
+  font-size: 1.2rem; 
+}
+section.code-xl pre {
+  font-size: 1.6rem; 
+}
+section.text-lg p {
+  font-size: 1.2rem; 
+}
+section.text-xl p {
+  font-size: 1.6rem; 
+}
+section.list-lg ol, section.list-lg li {
+  font-size: 1.1rem; 
+}
+section.list-xl ol, section.list-xl li {
+  font-size: 1.4rem; 
+}
+
+section > *:first-child,
+section > header:first-child + * {
+  margin-top: 0;
+}
+section a,
+section mark {
+  color: var(--link-color);
+}
+section code {
+  background: var(--code-background);
+  color: var(--code-color);
+}
+section h1 strong,
+section h2 strong,
+section h3 strong,
+section h4 strong,
+section h5 strong,
+section h6 strong {
+  color: var(--primary-color);
+}
+section pre > code {
+  background: var(--code-background);
+}
+section header,
+section footer,
+section section::after,
+section blockquote::before,
+section blockquote::after {
+  color: var(--comment-color);
+}
+section table th,
+section table td {
+  border-color: var(--primary-color);
+}
+section table thead th {
+  background: var(--primary-color);
+  color: var(--one-dark-black);
+}
+
+header,
+footer,
+section::after {
+  box-sizing: border-box;
+  font-size: 66%;
+  height: 70px;
+  line-height: 50px;
+  overflow: hidden;
+  padding: 10px 25px;
+  position: absolute;
+  color: var(--dracula-comment);
+}
+
+header {
+  left: 0;
+  right: 0;
+  top: 0;
+}
+
+footer {
+  left: 0;
+  right: 0;
+  bottom: 0;
+}
+
+section::after {
+  right: 0;
+  bottom: 0;
+  font-size: 80%;
+}
+
+pre code svg[data-marp-fitting="svg"] {
+  max-height: calc(40vh - 1em);
+}
+
+section.plantuml {
+  background-color: white !important;
+}
+
+section.plantuml > img {
+  width: -webkit-fill-available;
+}
+
+section.centered {
+  text-align: center;
+}
+
+section.centered > h1,
+section.centered > header,
+section.centered > footer {
+  text-align: left;
+}
