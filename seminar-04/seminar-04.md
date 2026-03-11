@@ -6,7 +6,7 @@ paginate: true
 
 <!-- _class: lead -->
 
-# REST APIs, Express & Kubb
+# REST APIs, Hono & Kubb
 
 ## PB138 — Basics of Web Development
 
@@ -19,7 +19,7 @@ paginate: true
 1. HTTP — the language of the web
 2. Client-Server lifecycle
 3. REST API design
-4. Express.js
+4. Building APIs in TypeScript — Express → tsoa → Hono → Hono + zod-openapi
 5. CORS
 6. OpenAPI specification
 7. React Hooks & TanStack Query
@@ -139,7 +139,7 @@ Status codes ARE part of your API contract. Clients branch on them.
 ## The Full Journey
 
 ```
-React App                          Express Server
+React App                          Server
 │                                           │
 │  1. fetch('/api/products')                │
 │     DNS: resolve hostname → IP            │
@@ -219,6 +219,14 @@ Level 0 │  Single Endpoint ——— one URL, everything is POST
 
 **Target: Level 2** — correct HTTP methods + status codes. Browsers and CDNs can cache `GET` automatically. `DELETE` is idempotent. Clients branch on status codes, not body parsing.
 
+
+---
+
+<!-- _class: lead -->
+
+# Building APIs in TypeScript
+
+*From Express to Hono — how the ecosystem evolved*
 
 ---
 
@@ -423,6 +431,155 @@ export class CoursesController extends Controller {
 
 <!-- _class: lead -->
 
+# Hono
+
+*"Fast, lightweight, built for the edge — and it just works with Bun"*
+
+---
+
+## What is Hono?
+
+- Modern, lightweight web framework for TypeScript
+- **Works everywhere** — Bun, Deno, Node.js, Cloudflare Workers, Vercel
+- Similar API to Express, but with native TypeScript support
+- Built-in middleware (CORS, logger, etc.) — no extra packages
+
+```ts
+import { Hono } from 'hono'
+
+const app = new Hono()
+
+app.get('/api/health', (c) => {
+  return c.json({ status: 'ok' })
+})
+
+export default { port: 3000, fetch: app.fetch } // Bun native server
+```
+
+No `express.json()`, no `app.listen()` — Hono handles it.
+
+---
+
+## Hono Route Handlers
+
+```ts
+const products: Product[] = []
+
+// GET all
+app.get('/api/products', (c) => {
+  return c.json(products)
+})
+
+// GET one
+app.get('/api/products/:id', (c) => {
+  const product = products.find(p => p.id === c.req.param('id'))
+  if (!product) return c.json({ error: 'Not found' }, 404)
+  return c.json(product)
+})
+
+// POST — create
+app.post('/api/products', async (c) => {
+  const body = await c.req.json()
+  const product = { id: crypto.randomUUID(), ...body }
+  products.push(product)
+  return c.json(product, 201)
+})
+```
+
+Same concepts as Express. Different API — `c.json()` instead of `res.json()`.
+
+---
+
+<!-- _class: lead -->
+
+# @hono/zod-openapi
+
+*"One Zod schema to validate, type, and document them all"*
+
+---
+
+## The Problem with Separate Concerns
+
+With Express + tsoa, you write things three times:
+
+```
+TypeScript interface    →  defines the shape
+Zod schema              →  validates the input
+tsoa decorators         →  generates the OpenAPI spec
+```
+
+Each one can go out of sync. `@hono/zod-openapi` unifies all three.
+
+---
+
+## @hono/zod-openapi — Single Source of Truth
+
+**One Zod schema** = types + validation + OpenAPI spec generation:
+
+```ts
+import { z } from '@hono/zod-openapi'
+
+export const CreateProductSchema = z.object({
+  name: z.string().min(1).max(100),
+  price: z.number().positive(),
+  category: z.enum(['electronics', 'clothing', 'food']),
+}).openapi('CreateProduct')
+
+// TypeScript type is inferred — no separate interface needed
+type CreateProduct = z.infer<typeof CreateProductSchema>
+```
+
+`.openapi('CreateProduct')` registers the schema for the OpenAPI spec.
+
+---
+
+## Route Definitions
+
+Routes are defined declaratively — method, path, schemas, responses:
+
+```ts
+import { createRoute, OpenAPIHono, z } from '@hono/zod-openapi'
+
+const app = new OpenAPIHono()
+
+app.openapi(
+  createRoute({
+    method: 'get',
+    path: '/',
+    responses: {
+      200: {
+        description: 'List of products',
+        content: { 'application/json': { schema: z.array(ProductSchema) } },
+      },
+    },
+  }),
+  (c) => {
+    return c.json(products, 200) // fully typed — TS knows the shape
+  },
+)
+```
+
+Request validation happens automatically — invalid input returns 400 before your handler runs.
+
+---
+
+## The Evolution — At a Glance
+
+| | Express | Express + tsoa | Hono + zod-openapi |
+|---|---|---|---|
+| **Language** | JS / TS | TS | TS |
+| **Types** | manual | decorators | inferred from Zod |
+| **Validation** | manual Zod | manual Zod | automatic |
+| **OpenAPI** | manual / tsoa gen | tsoa gen | built-in |
+| **Code gen needed** | — | `tsoa generate` | — |
+| **Runtime** | Node.js | Node.js | Bun, Node, Edge |
+
+**Our assignment uses Hono + @hono/zod-openapi** — the rightmost column.
+
+---
+
+<!-- _class: lead -->
+
 # CORS
 
 *"The browser's way of saying: I don't know you like that"*
@@ -454,19 +611,13 @@ using your logged-in session cookies... yeah.
 **C**ross-**O**rigin **R**esource **S**haring — the server tells the browser which origins it trusts.
 
 ```js
+// Express
 import cors from 'cors'
+app.use(cors({ origin: ['http://localhost:5173'] }))
 
-// Lazy — works, but opens your API to the entire internet
-app.use(cors())
-
-// Correct — allow only your known frontends
-app.use(cors({
-  origin: [
-    'http://localhost:5173',  // local dev
-    'https://myapp.com',      // production
-  ],
-  credentials: true,          // allow cookies / Authorization headers
-}))
+// Hono — built-in, no extra package
+import { cors } from 'hono/cors'
+app.use('*', cors({ origin: ['http://localhost:5173'] }))
 ```
 
 The server adds `Access-Control-Allow-Origin` headers.
@@ -521,17 +672,17 @@ Two approaches to owning the spec:
 ```
 Schema-First                    Code-First
 ────────────────                ────────────────
-Write openapi.yaml              Write Express routes
+Write openapi.yaml              Write routes with Zod schemas
 │                               │
 ▼                               ▼
-Generate server stubs           Annotate or use zod-to-openapi
+Generate server stubs           @hono/zod-openapi extracts the spec
 Generate client code            │
 │                               ▼
-▼                               Generate openapi.yaml
+▼                               Generate openapi.json
 Implement the handlers
 ```
 
-**We use code-first** — write your routes, generate the spec.
+**We use code-first** — write your routes with Zod schemas, generate the spec.
 More natural, stays in sync with your code automatically.
 No YAML authoring by hand at 2am.
 
@@ -696,8 +847,8 @@ What you get **for free**: caching, background refetching, deduplication, retry 
 ## Kubb — Code Generation from OpenAPI
 
 ```
-Express Routes  -->  openapi.yaml  -->  Generated Client
-                     (kubb.config.ts)
+Hono Routes  -->  openapi.json  -->  Generated Client
+                  (kubb.config.ts)
 
 GET    /products                        getProducts()
 POST   /products                        createProduct(data)
@@ -784,10 +935,13 @@ Frontend and backend can evolve independently — safely.
 2. **Client-Server lifecycle** — DNS → TCP → middleware → handler → response
 3. **REST** — stateless, resource-oriented, target Level 2
 4. **Express.js** — middleware chain, route handlers, Zod validation
-5. **CORS** — why it exists, how to configure it correctly
-6. **OpenAPI** — machine-readable spec, code-first approach
-7. **React Hooks & TanStack Query** — useQuery, caching, background refetching
-8. **Kubb** — typed query options generated from the OpenAPI spec
+5. **tsoa** — decorator-based controllers, generated routes + spec
+6. **Hono** — modern, lightweight, works with Bun natively
+7. **@hono/zod-openapi** — single source of truth: types + validation + OpenAPI
+8. **CORS** — why it exists, how to configure it correctly
+9. **OpenAPI** — machine-readable spec, code-first approach
+10. **React Hooks & TanStack Query** — useQuery, caching, background refetching
+11. **Kubb** — typed query options generated from the OpenAPI spec
 
 ---
 
