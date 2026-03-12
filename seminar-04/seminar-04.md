@@ -6,7 +6,7 @@ paginate: true
 
 <!-- _class: lead -->
 
-# REST APIs, Hono & Kubb
+# REST APIs, Elysia & Kubb
 
 ## PB138 — Basics of Web Development
 
@@ -19,7 +19,7 @@ paginate: true
 1. HTTP — the language of the web
 2. Client-Server lifecycle
 3. REST API design
-4. Building APIs in TypeScript — Express → tsoa → Hono → Hono + zod-openapi
+4. Building APIs in TypeScript — Express → Elysia + Zod
 5. CORS
 6. OpenAPI specification
 7. React Hooks & TanStack Query
@@ -226,7 +226,7 @@ Level 0 │  Single Endpoint ——— one URL, everything is POST
 
 # Building APIs in TypeScript
 
-*From Express to Hono — how the ecosystem evolved*
+*From Express to Elysia — how the ecosystem evolved*
 
 ---
 
@@ -368,131 +368,72 @@ app.post('/api/products', async (req, res) => {
 
 ---
 
-## tsoa — Decorators Instead of Manual Routes
-
-Instead of writing `app.get(...)` by hand, we decorate controller classes:
-
-```
-Developer writes          tsoa generates
------------------         ----------------
-@Route, @Get, @Post       src/generated/routes.ts  (RegisterRoutes)
-on controller classes     openapi.json             (API spec)
-```
-
-```ts
-// app.ts — just one line to register everything
-import { RegisterRoutes } from './generated/routes'
-
-const app = express()
-app.use(express.json())
-app.use(cors())
-RegisterRoutes(app)   // all routes from all controllers
-```
-
-You write controllers with decorators → run `bun run generate` → tsoa creates routes + OpenAPI spec.
-
-Docs: [tsoa-community.github.io/docs](https://tsoa-community.github.io/docs/)
-
----
-
-## tsoa Controller Example
-
-```ts
-import { Controller, Route, Tags, Get, Post, Query, Path, Body } from 'tsoa'
-
-@Route('courses')
-@Tags('Courses')
-export class CoursesController extends Controller {
-
-  @Get()
-  public async getCourses(
-    @Query() semester?: 'fall' | 'spring',
-    @Query() minCredits?: number,
-  ): Promise<Course[]> {
-    return coursesService.getAll({ semester, minCredits })
-  }
-
-  @Get('{id}')
-  public async getCourseById(@Path() id: string): Promise<Course> {
-    const course = coursesService.getById(id)
-    if (!course) { this.setStatus(404); throw new Error('Not found') }
-    return course
-  }
-
-  @Post()
-  public async createCourse(@Body() body: CreateCourseBody): Promise<Course> {
-    this.setStatus(201)
-    return coursesService.create(body) // Zod validates in the service
-  }
-}
-```
-
----
-
 <!-- _class: lead -->
 
-# Hono
+# Elysia
 
-*"Fast, lightweight, built for the edge — and it just works with Bun"*
+*"Ergonomic framework for humans — end-to-end type safety with Bun"*
 
 ---
 
-## What is Hono?
+## What is Elysia?
 
-- Modern, lightweight web framework for TypeScript
-- **Works everywhere** — Bun, Deno, Node.js, Cloudflare Workers, Vercel
-- Similar API to Express, but with native TypeScript support
-- Built-in middleware (CORS, logger, etc.) — no extra packages
+- Modern, ergonomic web framework built for **Bun**
+- End-to-end type safety — routes, params, body, response all typed
+- Built-in plugin system (CORS, Scalar, etc.)
+- Supports **Zod** validation via Standard Schema
 
 ```ts
-import { Hono } from 'hono'
+import { Elysia } from 'elysia'
 
-const app = new Hono()
+const app = new Elysia()
 
-app.get('/api/health', (c) => {
-  return c.json({ status: 'ok' })
+app.get('/api/health', () => {
+  return { status: 'ok' }
 })
 
-export default { port: 3000, fetch: app.fetch } // Bun native server
+app.listen(3000)
 ```
 
-No `express.json()`, no `app.listen()` — Hono handles it.
+No `express.json()`, no manual response serialization — just return objects.
 
 ---
 
-## Hono Route Handlers
+## Elysia Route Handlers
 
 ```ts
-const products: Product[] = []
+const app = new Elysia()
 
 // GET all
-app.get('/api/products', (c) => {
-  return c.json(products)
+app.get('/api/products', () => {
+  return products
 })
 
 // GET one
-app.get('/api/products/:id', (c) => {
-  const product = products.find(p => p.id === c.req.param('id'))
-  if (!product) return c.json({ error: 'Not found' }, 404)
-  return c.json(product)
+app.get('/api/products/:id', ({ params: { id }, set }) => {
+  const product = products.find(p => p.id === id)
+  if (!product) {
+    set.status = 404
+    return { error: 'Not found' }
+  }
+  return product
 })
 
 // POST — create
-app.post('/api/products', async (c) => {
-  const body = await c.req.json()
+app.post('/api/products', ({ body }) => {
   const product = { id: crypto.randomUUID(), ...body }
   products.push(product)
-  return c.json(product, 201)
+  return product
 })
 ```
 
-Same concepts as Express. Different API — `c.json()` instead of `res.json()`.
+Same concepts as Express. Cleaner API — destructure what you need, return objects directly.
 
 ---
 
 <!-- _class: lead -->
 
-# @hono/zod-openapi
+# Elysia + Zod
 
 *"One Zod schema to validate, type, and document them all"*
 
@@ -500,81 +441,145 @@ Same concepts as Express. Different API — `c.json()` instead of `res.json()`.
 
 ## The Problem with Separate Concerns
 
-With Express + tsoa, you write things three times:
+With plain Express, you often maintain things separately:
 
 ```
 TypeScript interface    →  defines the shape
 Zod schema              →  validates the input
-tsoa decorators         →  generates the OpenAPI spec
+Separate tool / config  →  generates the OpenAPI spec
 ```
 
-Each one can go out of sync. `@hono/zod-openapi` unifies all three.
+Each one can go out of sync. **Elysia + Zod** unifies all three.
 
 ---
 
-## @hono/zod-openapi — Single Source of Truth
+## Elysia + Zod — Single Source of Truth
 
 **One Zod schema** = types + validation + OpenAPI spec generation:
 
 ```ts
-import { z } from '@hono/zod-openapi'
+import { z } from 'zod'
 
 export const CreateProductSchema = z.object({
   name: z.string().min(1).max(100),
   price: z.number().positive(),
   category: z.enum(['electronics', 'clothing', 'food']),
-}).openapi('CreateProduct')
+})
 
 // TypeScript type is inferred — no separate interface needed
 type CreateProduct = z.infer<typeof CreateProductSchema>
 ```
 
-`.openapi('CreateProduct')` registers the schema for the OpenAPI spec.
+Plain Zod — no special wrappers. Elysia validates input and generates OpenAPI docs automatically.
 
 ---
 
 ## Route Definitions
 
-Routes are defined declaratively — method, path, schemas, responses:
+Routes are defined with chaining — method, path, handler, schema config:
 
 ```ts
-import { createRoute, OpenAPIHono, z } from '@hono/zod-openapi'
+import { Elysia } from 'elysia'
+import { z } from 'zod'
 
-const app = new OpenAPIHono()
+const app = new Elysia({ prefix: '/products', tags: ['Products'] })
 
-app.openapi(
-  createRoute({
-    method: 'get',
-    path: '/',
-    responses: {
-      200: {
-        description: 'List of products',
-        content: { 'application/json': { schema: z.array(ProductSchema) } },
-      },
-    },
-  }),
-  (c) => {
-    return c.json(products, 200) // fully typed — TS knows the shape
-  },
-)
+  .get('/', () => {
+    return products
+  }, {
+    detail: { description: 'List of products' },
+  })
+
+  .post('/', ({ body }) => {
+    return productsService.create(body)
+  }, {
+    body: CreateProductSchema,
+    detail: { description: 'Create a product' },
+  })
 ```
 
-Request validation happens automatically — invalid input returns 400 before your handler runs.
+Pass a Zod schema in the third argument — Elysia validates automatically and returns 400 on invalid input.
 
 ---
 
 ## The Evolution — At a Glance
 
-| | Express | Express + tsoa | Hono + zod-openapi |
+| | Express | Express + tsoa | Elysia + Zod |
 |---|---|---|---|
 | **Language** | JS / TS | TS | TS |
 | **Types** | manual | decorators | inferred from Zod |
 | **Validation** | manual Zod | manual Zod | automatic |
 | **OpenAPI** | manual / tsoa gen | tsoa gen | built-in |
 | **Code gen needed** | — | `tsoa generate` | — |
-| **Runtime** | Node.js | Node.js | Bun, Node, Edge |
+| **Runtime** | Node.js | Node.js | Bun |
 
-**Our assignment uses Hono + @hono/zod-openapi** — the rightmost column.
+**Our assignment uses Elysia + Zod** — the rightmost column.
+
+---
+
+<!-- _class: lead -->
+
+# Exercise: Setup & Backend
+
+---
+
+## Getting Started
+
+```bash
+cd pb138-seminars && git checkout seminar-04-assignment
+bun install
+bun run dev
+```
+
+| URL | What |
+|---|---|
+| http://localhost:3000 | REST API |
+| http://localhost:3000/api-docs | Scalar — explore & test all endpoints |
+| http://localhost:5173 | React frontend |
+
+Each backend module has the same layers:
+
+**types** → **schema** (Zod) → **repository** (data) → **service** (logic) → **routes** (Elysia)
+
+Read through the **`students` module** first — it's the reference implementation.
+
+---
+
+## Task 1 — Course Filtering
+
+**File:** `apps/server/src/modules/courses/courses.service.ts`
+
+`getAll()` receives a `filter` object but ignores it. Implement four filters:
+
+| Filter | What to do |
+|---|---|
+| `filter.semester` | Keep courses matching the given semester |
+| `filter.tags` | Keep courses that have **all** requested tags |
+| `filter.minCredits` / `maxCredits` | Keep courses in credit range (inclusive) |
+| `filter.instructorId` | Keep courses taught by that instructor |
+
+Each filter: `if (filter.x) { courses = courses.filter(...) }`
+
+**Verify:** Scalar → `GET /courses` with query params
+
+---
+
+## Task 2 — Instructor Creation
+
+**Step A — Validation** (`instructor.schema.ts`)
+
+Add constraints to `CreateInstructorBodySchema`:
+- `firstName`, `lastName` — non-empty, max 50 chars
+- `email` — valid email format
+- `department` — non-empty
+
+**Step B — Service** (`instructors.service.ts`)
+
+Implement `create()` — pass data to `instructorsRepository.create()`.
+
+Reference: `students` module has the same pattern.
+
+**Verify:** Scalar → `POST /instructors` — try valid & invalid bodies
 
 ---
 
@@ -615,9 +620,9 @@ using your logged-in session cookies... yeah.
 import cors from 'cors'
 app.use(cors({ origin: ['http://localhost:5173'] }))
 
-// Hono — built-in, no extra package
-import { cors } from 'hono/cors'
-app.use('*', cors({ origin: ['http://localhost:5173'] }))
+// Elysia — plugin
+import { cors } from '@elysiajs/cors'
+app.use(cors({ origin: ['http://localhost:5173'] }))
 ```
 
 The server adds `Access-Control-Allow-Origin` headers.
@@ -655,8 +660,8 @@ A standard, machine-readable description of your HTTP API.
 
 **One spec, many superpowers:**
 
-- Interactive docs (Swagger UI, Redoc)
-- Typed client generation — Kubb, openapi-typescript
+- Interactive docs (Scalar, Swagger UI, Redoc)
+- Typed client generation — Kubb, orval, openapi-typescript
 - Request/response validation
 - Contract between frontend and backend teams
 - Mock servers for testing before the backend exists
@@ -675,7 +680,7 @@ Schema-First                    Code-First
 Write openapi.yaml              Write routes with Zod schemas
 │                               │
 ▼                               ▼
-Generate server stubs           @hono/zod-openapi extracts the spec
+Generate server stubs           Elysia + @elysiajs/openapi extracts the spec
 Generate client code            │
 │                               ▼
 ▼                               Generate openapi.json
@@ -707,31 +712,32 @@ paths:
                 type: array
                 items:
                   $ref: '#/components/schemas/Product'
-    post:
-      summary: Create a product
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/CreateProduct'
+components:
+  schemas:
+    Product:
+      type: object
+      required: [id, name, price, category]
+      properties:
+        id:    { type: string }
+        name:  { type: string }
+        price: { type: number }
+        category: { type: string, enum: [electronics, clothing, food] }
 ```
 
 ---
 
-## Swagger UI — Your API Playground
+## Scalar — Your API Playground
 
-Generated from `openapi.yaml` — a live, interactive UI:
+Reads `openapi.json` and gives you interactive docs with modern DX:
 
-- **GET** `/api/products` — list all
-- **POST** `/api/products` — create
-- **GET** `/api/products/{id}` — get one
-- **PUT** `/api/products/{id}` — update
-- **DELETE** `/api/products/{id}` — delete
+- Cleaner design, dark mode, auto-generated code examples
+- Built-in request builder with history
+- Sends real requests, shows live responses
+- Every endpoint browsable — no source code reading needed
 
-Each endpoint has a **"Try it out"** button — fills in params, sends real requests, shows live responses.
+Alternative: **Swagger UI** — the classic, still widely used. Same idea, older UI.
 
-Every team member can explore and test the API without reading source code.
+We use **Scalar** on this course — available at `/api-docs` when you run the server.
 
 ---
 
@@ -742,7 +748,7 @@ Every team member can explore and test the API without reading source code.
 - Schema-first: write YAML → generate code
 - Code-first: write code → generate YAML
 - We use code-first — stays in sync automatically
-- Swagger UI = interactive docs + live API playground
+- Scalar = interactive docs + live API playground
 
 **Questions?**
 
@@ -847,7 +853,7 @@ What you get **for free**: caching, background refetching, deduplication, retry 
 ## Kubb — Code Generation from OpenAPI
 
 ```
-Hono Routes  -->  openapi.json  -->  Generated Client
+Elysia Routes -->  openapi.json  -->  Generated Client
                   (kubb.config.ts)
 
 GET    /products                        getProducts()
@@ -925,6 +931,45 @@ Frontend and backend can evolve independently — safely.
 
 <!-- _class: lead -->
 
+# Exercise: Frontend
+
+---
+
+## Task 3a — Student List
+
+**File:** `apps/web/src/pages/StudentsPage.tsx`
+
+Display all students using the generated query options:
+
+```tsx
+import { useQuery } from '@tanstack/react-query'
+import { getStudentsQueryOptions } from '@/generated'
+
+const { data, isLoading, error } = useQuery(getStudentsQueryOptions())
+```
+
+Handle loading/error states. Render each student's name, email, and UCO.
+
+Reference: `CoursesPage.tsx` — same pattern, different entity.
+
+---
+
+## Task 3b — Semester Filter
+
+**File:** `apps/web/src/pages/CoursesPage.tsx`
+
+Add a semester filter to the existing courses page:
+
+1. Add state: `const [semester, setSemester] = useState<string>()`
+2. Pass to query: `getCoursesQueryOptions({ semester })`
+3. Render a `<Select>` above the course grid: All / Spring / Fall
+
+**Verify:** http://localhost:5173 — dropdown should filter courses live
+
+---
+
+<!-- _class: lead -->
+
 # Summary
 
 ---
@@ -935,13 +980,12 @@ Frontend and backend can evolve independently — safely.
 2. **Client-Server lifecycle** — DNS → TCP → middleware → handler → response
 3. **REST** — stateless, resource-oriented, target Level 2
 4. **Express.js** — middleware chain, route handlers, Zod validation
-5. **tsoa** — decorator-based controllers, generated routes + spec
-6. **Hono** — modern, lightweight, works with Bun natively
-7. **@hono/zod-openapi** — single source of truth: types + validation + OpenAPI
-8. **CORS** — why it exists, how to configure it correctly
-9. **OpenAPI** — machine-readable spec, code-first approach
-10. **React Hooks & TanStack Query** — useQuery, caching, background refetching
-11. **Kubb** — typed query options generated from the OpenAPI spec
+5. **Elysia** — modern, ergonomic, built for Bun
+6. **Elysia + Zod** — single source of truth: types + validation + OpenAPI
+7. **CORS** — why it exists, how to configure it correctly
+8. **OpenAPI** — machine-readable spec, code-first approach
+9. **React Hooks & TanStack Query** — useQuery, caching, background refetching
+10. **Kubb** — typed query options generated from the OpenAPI spec
 
 ---
 

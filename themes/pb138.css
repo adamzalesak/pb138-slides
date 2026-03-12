@@ -24,6 +24,11 @@ section.lead h2 {
   border-bottom: none;
 }
 
+section.lead code {
+  background-color: rgba(255, 255, 255, 0.15);
+  color: #ffffff;
+}
+
 h1 {
   color: #1a1a2e;
   border-bottom: 3px solid #0f3460;
