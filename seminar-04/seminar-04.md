@@ -939,13 +939,12 @@ Frontend and backend can evolve independently — safely.
 
 **File:** `apps/web/src/pages/StudentsPage.tsx`
 
-Display all students using the generated query options:
+Display all students using the generated hook:
 
 ```tsx
-import { useQuery } from '@tanstack/react-query'
-import { getStudentsQueryOptions } from '@/generated'
+import { useGetStudents } from '@/generated/hooks/useGetStudents'
 
-const { data, isLoading, error } = useQuery(getStudentsQueryOptions())
+const { data, isLoading, isError } = useGetStudents()
 ```
 
 Handle loading/error states. Render each student's name, email, and UCO.
@@ -960,11 +959,27 @@ Reference: `CoursesPage.tsx` — same pattern, different entity.
 
 Add a semester filter to the existing courses page:
 
-1. Add state: `const [semester, setSemester] = useState<string>()`
-2. Pass to query: `getCoursesQueryOptions({ semester })`
+1. Add state: `const [semester, setSemester] = useState<string>('all')`
+2. Pass to hook: `useGetCourses({ semester })`
 3. Render a `<Select>` above the course grid: All / Spring / Fall
 
 **Verify:** http://localhost:5173 — dropdown should filter courses live
+
+---
+
+## Task 4 — Create Student Form (homework)
+
+**File:** `apps/web/src/pages/StudentsPage.tsx`
+
+Add a form that creates a new student via the API:
+
+1. State variables for `firstName`, `lastName`, `email`, `uco` (`useState`)
+2. `usePostStudents()` hook for the mutation
+3. On success: invalidate cache (`queryClient.invalidateQueries`) + reset form
+4. Build a `<form>` with `Input` and `Button` components
+5. Show `mutation.error` when the server rejects the input
+
+The TODO comment in `StudentsPage.tsx` contains a code skeleton.
 
 ---
 
