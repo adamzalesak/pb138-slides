@@ -230,141 +230,33 @@ Level 0 │  Single Endpoint ——— one URL, everything is POST
 
 ---
 
-<!-- _class: lead -->
+## Express.js — The Classic
 
-# Express.js
-
-*"Node.js framework so minimal, you'll add 40 packages before writing a single route"*
-
----
-
-## What is Express?
-
-- Minimal, unopinionated web framework for Node.js
-- Created in 2010, still the most-used Node.js backend framework
-- `npm install express` → you have a server
+- Minimal, unopinionated web framework for Node.js (2010, still most-used)
+- Middleware chain: each request flows through a pipeline of `(req, res, next)`
 
 ```js
 import express from 'express'
 
 const app = express()
-app.use(express.json()) // parse JSON request bodies
+app.use(express.json())                          // parse JSON bodies
 
-app.get('/api/health', (req, res) => {
-  res.json({ status: 'ok' })
-})
-
-app.listen(3000, () => {
-  console.log('Server on http://localhost:3000')
-})
-```
-
-That's it. That's a server.
-
----
-
-## The Middleware Chain
-
-Every request flows through a pipeline of functions.
-
-```
-Incoming Request
-      |
-      v
-  express.json()    -- parse request body
-      |
-      v
-  cors()            -- set CORS headers
-      |
-      v
-  authStub()        -- attach currentUser
-      |
-      v
-  Route Handler     -- app.get('/api/users', handler)
-      |
-      v
-  Response sent
-```
-
----
-
-## Middleware — The Anatomy
-
-A middleware is just a function: `(req, res, next) => void`
-
-```js
-// Logging middleware
-const logger = (req, res, next) => {
-  console.log(`→ ${req.method} ${req.path}`)
-  next() // must call next() or the request hangs forever
-}
-
-// Auth stub — Week 8 replaces this with real OAuth
-const authMiddleware = (req, res, next) => {
-  req.currentUser = { id: '1', role: 'admin' }
-  next()
-}
-
-app.use(logger)
-app.use(authMiddleware)
-```
-
-`next()` = "pass control to the next function in the chain."
-Forgetting it = request hangs silently. Classic Friday afternoon bug.
-
----
-
-## Route Handlers
-
-```js
-const products: Product[] = [] // in-memory for now — Week 5 adds a real DB
-
-// GET all
 app.get('/api/products', (req, res) => {
   res.json(products)
 })
 
-// GET one
-app.get('/api/products/:id', (req, res) => {
-    const product = products.find(p => p.id === req.params.id)
-    if (!product) return res.status(404).json({ error: 'Not found' })
-    res.json(product)
-})
-
-// POST — create
-app.post('/api/products', async (req, res) => {
-  const product = { id: crypto.randomUUID(), ...req.body }
-  products.push(product)
-  res.status(201).json(product)
-})
-```
-
----
-
-## Runtime Validation with Zod
-
-Remember Week 3? `req.body` is `any`. Let's fix that.
-
-```ts
-import { z } from 'zod'
-
-const CreateProductSchema = z.object({
-  name: z.string().min(1),
-  price: z.number().positive(),
-  category: z.enum(['electronics', 'clothing', 'food']),
-})
-
-app.post('/api/products', async (req, res) => {
-  const result = CreateProductSchema.safeParse(req.body)
-  if (!result.success) {
-    return res.status(400).json({ error: result.error.flatten() })
-  }
-  // result.data is fully typed
+app.post('/api/products', (req, res) => {
+  const result = CreateProductSchema.safeParse(req.body)  // manual Zod
+  if (!result.success) return res.status(400).json({ error: result.error.flatten() })
   const product = { id: crypto.randomUUID(), ...result.data }
   products.push(product)
   res.status(201).json(product)
 })
+
+app.listen(3000)
 ```
+
+Validation, OpenAPI, CORS — all manual setup. No type inference from schemas.
 
 ---
 
@@ -431,6 +323,62 @@ Same concepts as Express. Cleaner API — destructure what you need, return obje
 
 ---
 
+## Elysia Lifecycle & Middleware
+
+Every request flows through a chain of hooks — similar to Express middleware, but structured:
+
+![w:900 center](lifecycle-chart.svg)
+
+---
+
+```ts
+const app = new Elysia()
+  // Guard — returning a value short-circuits the chain (no next() needed)
+  .onBeforeHandle(({ set, headers }) => {
+    if (!headers.authorization) {
+      set.status = 401
+      return { error: 'Login required' }
+    }
+  })
+  // Derive — merges return value into context for all handlers below
+  .derive(({ headers }) => {
+    const user = getUserFromToken(headers.authorization)
+    return { currentUser: user }
+  })
+  .get('/api/profile', ({ currentUser }) => {
+    return currentUser  // fully typed, no casting
+  })
+```
+
+`onBeforeHandle` = guard (reject early). `derive` = enrich context (pass data to handlers).
+
+---
+
+## Plugins & Modularization — `.use()`
+
+`.use()` merges an entire Elysia instance (plugin) into your app — hooks, routes, everything:
+
+```ts
+// modules/products.ts — self-contained module
+export const products = new Elysia({ prefix: '/products', tags: ['Products'] })
+  .get('/', () => productsService.getAll())
+  .post('/', ({ body }) => productsService.create(body), {
+    body: CreateProductSchema,
+  })
+
+// index.ts — compose everything in one place
+const app = new Elysia()
+  .use(cors())        // plugin: registers CORS hooks internally
+  .use(openapi())     // plugin: adds OpenAPI spec gen
+  .use(products)      // your module: mounts routes under /products
+  .use(students)
+  .listen(3000)
+```
+
+Same idea in every framework (Express Router, Fastify plugins, ...) — split routes into modules, compose at the top.
+
+---
+
 <!-- _class: lead -->
 
 # Elysia + Zod
@@ -484,9 +432,7 @@ import { z } from 'zod'
 
 const app = new Elysia({ prefix: '/products', tags: ['Products'] })
 
-  .get('/', () => {
-    return products
-  }, {
+  .get('/', () => products, {
     detail: { description: 'List of products' },
   })
 
@@ -502,18 +448,17 @@ Pass a Zod schema in the third argument — Elysia validates automatically and r
 
 ---
 
-## The Evolution — At a Glance
+## Why Elysia + Zod?
 
-| | Express | Express + tsoa | Elysia + Zod |
-|---|---|---|---|
-| **Language** | JS / TS | TS | TS |
-| **Types** | manual | decorators | inferred from Zod |
-| **Validation** | manual Zod | manual Zod | automatic |
-| **OpenAPI** | manual / tsoa gen | tsoa gen | built-in |
-| **Code gen needed** | — | `tsoa generate` | — |
-| **Runtime** | Node.js | Node.js | Bun |
+| | Express | Elysia + Zod |
+|---|---|---|
+| **Types** | manual interfaces | inferred from Zod schemas |
+| **Validation** | manual `safeParse` in every handler | automatic — pass schema, done |
+| **OpenAPI** | manual / separate tool | built-in from your Zod schemas |
+| **DX** | `(req, res, next)`, `res.json()` | destructure context, return objects |
+| **Runtime** | Node.js / Bun / Deno | Bun |
 
-**Our assignment uses Elysia + Zod** — the rightmost column.
+Express taught the world backend JS. Elysia builds on those ideas with **less boilerplate and more type safety** — that's why we use it.
 
 ---
 
@@ -537,49 +482,15 @@ bun run dev
 | http://localhost:3000/api-docs | Scalar — explore & test all endpoints |
 | http://localhost:5173 | React frontend |
 
+---
+
+## Project Structure
+
 Each backend module has the same layers:
 
 **types** → **schema** (Zod) → **repository** (data) → **service** (logic) → **routes** (Elysia)
 
 Read through the **`students` module** first — it's the reference implementation.
-
----
-
-## Task 1 — Course Filtering
-
-**File:** `apps/server/src/modules/courses/courses.service.ts`
-
-`getAll()` receives a `filter` object but ignores it. Implement four filters:
-
-| Filter | What to do |
-|---|---|
-| `filter.semester` | Keep courses matching the given semester |
-| `filter.tags` | Keep courses that have **all** requested tags |
-| `filter.minCredits` / `maxCredits` | Keep courses in credit range (inclusive) |
-| `filter.instructorId` | Keep courses taught by that instructor |
-
-Each filter: `if (filter.x) { courses = courses.filter(...) }`
-
-**Verify:** Scalar → `GET /courses` with query params
-
----
-
-## Task 2 — Instructor Creation
-
-**Step A — Validation** (`instructor.schema.ts`)
-
-Add constraints to `CreateInstructorBodySchema`:
-- `firstName`, `lastName` — non-empty, max 50 chars
-- `email` — valid email format
-- `department` — non-empty
-
-**Step B — Service** (`instructors.service.ts`)
-
-Implement `create()` — pass data to `instructorsRepository.create()`.
-
-Reference: `students` module has the same pattern.
-
-**Verify:** Scalar → `POST /instructors` — try valid & invalid bodies
 
 ---
 
@@ -643,6 +554,35 @@ For non-simple requests (custom headers like `Authorization`), the browser sends
 - CORS errors = server didn't include the right response headers
 
 **Questions?**
+
+---
+
+## Task 1 — Course Filtering
+
+**File:** `apps/server/src/modules/courses/courses.service.ts`
+
+`getAll()` receives a `filter` object but ignores it. Implement four filters:
+
+| Filter | What to do |
+|---|---|
+| `filter.semester` | Keep courses matching the given semester |
+| `filter.tags` | Keep courses that have **all** requested tags |
+| `filter.minCredits` / `maxCredits` | Keep courses in credit range (inclusive) |
+| `filter.instructorId` | Keep courses taught by that instructor |
+
+Each filter: `if (filter.x) { courses = courses.filter(...) }`
+
+---
+
+## How Do We Verify It Works?
+
+We need a way to **explore and test** our API — send requests, tweak parameters, see responses.
+
+Manually writing `curl` commands or using Postman works... but there's a better way.
+
+What if the API could **describe itself** — and a tool could turn that description into an interactive playground?
+
+That's exactly what **OpenAPI** + **Scalar** do.
 
 ---
 
@@ -750,7 +690,28 @@ We use **Scalar** on this course — available at `/api-docs` when you run the s
 - We use code-first — stays in sync automatically
 - Scalar = interactive docs + live API playground
 
+**Now verify Task 1:** Scalar → `GET /courses` with query params
+
 **Questions?**
+
+---
+
+## Task 2 — Instructor Creation
+
+**Step A — Validation** (`instructor.schema.ts`)
+
+Add constraints to `CreateInstructorBodySchema`:
+- `firstName`, `lastName` — non-empty, max 50 chars
+- `email` — valid email format
+- `department` — non-empty
+
+**Step B — Service** (`instructors.service.ts`)
+
+Implement `create()` — pass data to `instructorsRepository.create()`.
+
+Reference: `students` module has the same pattern.
+
+**Verify:** Scalar → `POST /instructors` — try valid & invalid bodies
 
 ---
 
@@ -853,59 +814,38 @@ What you get **for free**: caching, background refetching, deduplication, retry 
 ## Kubb — Code Generation from OpenAPI
 
 ```
-Elysia Routes -->  openapi.json  -->  Generated Client
-                  (kubb.config.ts)
+Elysia Routes  -->  openapi.json  -->  Generated Code
+                   (kubb.config.ts)
 
-GET    /products                        getProducts()
-POST   /products                        createProduct(data)
-GET    /products/:id                    getProductById(id)
-PUT    /products/:id                    updateProduct(id, data)
-DELETE /products/:id                    deleteProduct(id)
+                              Fetch clients          React hooks
+GET    /products          →  getProducts()          useGetProducts()
+POST   /products          →  postProducts(data)     usePostProducts()
+GET    /products/:id      →  getProductsById(id)    useGetProductsById()
+DELETE /products/:id      →  deleteProductsById(id) useDeleteProductsById()
 ```
 
-All fully typed. No manual fetch. Backend changes → TypeScript yells at you.
+Typed fetch clients **and** React hooks. Backend changes → TypeScript yells at you.
 
 ---
 
-## What Kubb Generates
-
-Kubb generates **query options factories** — functions returning `{ queryKey, queryFn }`:
-
-```ts
-// Generated by Kubb — you never write this
-export function getProductsQueryOptions() {
-  return {
-    queryKey: ['products'],
-    queryFn: () => fetch('/api/products').then(r => r.json()) as Promise<Product[]>,
-  }
-}
-```
-
----
-
-You use them with standard `useQuery` — no magic hooks, full control:
+## Using Generated Hooks
 
 ```tsx
-import { useQuery } from '@tanstack/react-query'
-import { getProductsQueryOptions } from '@/api/generated'
+import { useGetProducts } from '@/generated/hooks/useGetProducts'
+import { usePostProducts } from '@/generated/hooks/usePostProducts'
 
-// Basic usage — just spread the generated options
-const { data, isLoading } = useQuery(getProductsQueryOptions())
+// Queries — just call the hook
+const { data, isLoading, isError } = useGetProducts()
 
-// Override anything — e.g. poll every 5s for a live dashboard
-const { data } = useQuery({
-  ...getProductsQueryOptions(),
-  refetchInterval: 5000,
-})
+// With params — e.g. filtering
+const { data } = useGetCourses({ semester: 'spring' })
 
-// Disable the query until user picks a category
-const { data } = useQuery({
-  ...getProductsByCategory(selectedCategory),
-  enabled: selectedCategory !== null,
-})
+// Mutations — for POST/PUT/DELETE
+const mutation = usePostProducts()
+mutation.mutate({ name: 'Widget', price: 9.99, category: 'electronics' })
 ```
 
-Same `useQuery` you already know. Kubb generates the boring parts — you keep full control.
+Same TanStack Query under the hood. Kubb generates the boring parts — fully typed, zero manual fetch.
 
 ---
 
