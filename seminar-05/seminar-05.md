@@ -625,7 +625,11 @@ Each method receives `db` (database or transaction instance) as the first argume
 
 **File:** `apps/server/src/modules/courses/courses.repository.ts`
 
-Same pattern as students. Implement `findAll(db)`, `findById(db, id)`, and `create(db, data)`.
+The `findAll` query (LEFT JOIN + count) is provided. Complete:
+
+- **`findAll` filter conditions** — build conditions from `filter` using `eq`, `gte`, `lte`, pass to `.where(and(...))`
+- **`findById(db, id)`** — same join pattern, filtered by id
+- **`create(db, data)`** — insert + return with `enrolled: 0`
 
 **Verify:** Scalar → `POST /courses` to create, then `GET /courses?semester=spring`
 
