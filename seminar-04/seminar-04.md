@@ -6,7 +6,7 @@ paginate: true
 
 <!-- _class: lead -->
 
-# REST APIs, Elysia & Kubb
+# Seminar 04 – REST APIs, Elysia & Kubb
 
 ## PB138 — Basics of Web Development
 
