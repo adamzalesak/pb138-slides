@@ -137,7 +137,7 @@ That's it. Your database is running on `localhost:5432`.
 # docker-compose.yml (already in the project)
 services:
   db:
-    image: postgres:17
+    image: postgres:18
     environment:
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: postgres
