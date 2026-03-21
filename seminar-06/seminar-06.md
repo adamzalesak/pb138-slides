@@ -341,6 +341,30 @@ function StudentsPage() {
 
 ---
 
+### Before You Start
+
+```bash
+# 1. Clone the repo & install dependencies
+bun i
+
+# 2. Start PostgreSQL
+docker compose up -d
+
+# 3. Copy environment variables
+cp apps/server/.env.example apps/server/.env
+
+# 4. Apply migrations & seed the database
+bun run db:push
+bun run db:seed
+
+# 5. Start the server + frontend
+bun run dev
+```
+
+Open http://localhost:5173 — you should see the app shell. API docs at http://localhost:3000/api-docs.
+
+---
+
 ### Task 1 — Create Routes & Navigation (~10 min)
 
 The skeleton has TanStack Start set up with `__root.tsx` ready. Your job:
@@ -351,6 +375,8 @@ The skeleton has TanStack Start set up with `__root.tsx` ready. Your job:
 2. **Add navigation** in `__root.tsx`:
    - Add `<Link>` components to `/students` and `/courses`
    - Use `activeProps` to highlight the current page
+
+3. Add a default route (`/`) that redirects to `/students`
 
 **Verify:** Click links → URL changes, correct page renders, back button works.
 
