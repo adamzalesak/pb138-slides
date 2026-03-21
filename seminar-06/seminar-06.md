@@ -48,6 +48,7 @@ function App() {
 ```
 
 Problems:
+
 - **No URLs** — you can't link to `/students` or `/courses`
 - **No navigation** — everything renders at once
 - **No browser history** — back/forward buttons don't work
@@ -96,11 +97,11 @@ Used for **filtering, sorting, pagination** — how do we want to view the data?
 
 ## Why TanStack Router?
 
-| Feature                     | React Router  | TanStack Router    |
-| --------------------------- | ------------- | ------------------ |
+| Feature                     | React Router   | TanStack Router    |
+| --------------------------- | -------------- | ------------------ |
 | **Type-safe params**        | ❌ strings     | ✅ fully typed      |
 | **Type-safe search params** | ❌ manual      | ✅ with validation  |
-| **Built-in data loading**   | partial       | ✅ loaders          |
+| **Built-in data loading**   | partial        | ✅ loaders          |
 | **File-based routing**      | ❌             | ✅ via plugin       |
 | **Devtools**                | ❌             | ✅                  |
 
@@ -114,7 +115,7 @@ With React Router, routes are **strings**. Typos hide until a user hits a broken
 
 ```tsx
 // React Router — string concatenation for routes
-<Link to={"/cousres/" + course.id}>Detail</Link>
+<Link to={"/cousres/" + course.id}>Detail</Link>;
 //         ^^^^^^^^ typo — blank page, no error, good luck
 
 // React Router — search params are raw strings, parse manually
@@ -126,7 +127,9 @@ const semester = searchParams.get("semester") ?? "spring";
 
 ```tsx
 // TanStack Router — typed routes, validated search params
-<Link to="/courses/$id" params={{ id: course.id }}>Detail</Link>
+<Link to="/courses/$id" params={{ id: course.id }}>
+  Detail
+</Link>;
 // ✅ typo in route path → TS error, autocomplete for routes + params
 
 const { page, semester } = Route.useSearch();
@@ -344,7 +347,6 @@ The skeleton has TanStack Start set up with `__root.tsx` ready. Your job:
 
 1. **Create two routes:** `routes/students/index.tsx` and `routes/courses/index.tsx`
    - Move the existing `StudentsPage` and `CoursesPage` into their route files
-   - Export `Route` using `createFileRoute`
 
 2. **Add navigation** in `__root.tsx`:
    - Add `<Link>` components to `/students` and `/courses`
@@ -529,6 +531,7 @@ __root.tsx                → Navbar + <Outlet>
 ```
 
 When navigating from `/students` to `/students/123`:
+
 - `__root.tsx` — stays mounted (navbar doesn't re-render)
 - `students/route.tsx` — stays mounted (header doesn't re-render)
 - Only the `<Outlet>` content swaps (index → $id)
@@ -570,8 +573,9 @@ export const Route = createFileRoute("/courses/")({
    - Add a heading ("Courses") and any shared UI
    - Render `<Outlet />` for child content
 
-2. **Do the same for `routes/students/`** — convert `students.tsx` to `students/route.tsx` + `students/index.tsx`
+2. **Do the same for `routes/students/`** — create `students/route.tsx`
    - The layout should have a heading ("Students")
+   - `students/index.tsx` already exists — it becomes the child
 
 **Verify:** Navigate between `/courses` and `/courses/123` — the heading stays, only the content below changes. Check the devtools route tree.
 
@@ -616,6 +620,7 @@ routes/
 ```
 
 Compare with a **normal folder** like `courses/`:
+
 - `courses/` → adds `/courses` to the URL
 - `_authenticated/` → adds **nothing** to the URL, just wraps children in a layout
 
@@ -678,6 +683,7 @@ Loaders alone fetch data — but **React Query** adds a caching and synchronizat
 - **React Query** = "cache it, refetch in background, share across components"
 
 Together:
+
 - **First visit** — loader prefetches into React Query cache → instant render
 - **Return visit** — cache hit, no network request at all
 - **Background refetch** — stale data is shown immediately, fresh data replaces it
@@ -717,6 +723,107 @@ function CourseDetailPage() {
 
 ---
 
+## React Suspense & Error Boundaries
+
+Two React primitives for handling **async states declaratively** — at the parent level.
+
+- **`<Suspense>`** — catches loading states (thrown Promises). Shows a fallback until children are ready.
+- **`<ErrorBoundary>`** — catches thrown errors. Shows a fallback instead of crashing the whole app.
+
+```tsx
+<ErrorBoundary fallback={<p>Something went wrong.</p>}>
+  <Suspense fallback={<p>Loading…</p>}>
+    <CoursesList />
+  </Suspense>
+</ErrorBoundary>
+```
+
+The parent controls both loading and error UI. The child component doesn't need any `if (isPending)` / `if (isError)` checks.
+
+---
+
+## Why Suspense? — Before & After
+
+```tsx
+// Without Suspense — every component handles its own loading & errors
+function CoursesList() {
+  const { data, isPending, isError } = useGetCourses();
+  if (isPending) return <p>Loading…</p>; // ← boilerplate in every component
+  if (isError) return <p>Error!</p>;     // ← boilerplate in every component
+  return <ul>{data.map(c => <li key={c.id}>{c.name}</li>)}</ul>;
+}
+```
+
+```tsx
+// With Suspense — parent handles loading & errors, component just renders
+<ErrorBoundary fallback={<p>Error!</p>}>
+  <Suspense fallback={<p>Loading…</p>}>
+    <CoursesList />
+  </Suspense>
+</ErrorBoundary>
+
+function CoursesList() {
+  const { data } = useSuspenseQuery(...); // ← data is always defined!
+  return <ul>{data.map(c => <li key={c.id}>{c.name}</li>)}</ul>;
+}
+```
+
+---
+
+## useQuery vs useSuspenseQuery
+
+|                            | `useQuery`                  | `useSuspenseQuery`           |
+| -------------------------- | --------------------------- | ---------------------------- |
+| **Loading state**          | You handle it (`isPending`) | Suspense boundary handles it |
+| **Error state**            | You handle it (`isError`)   | ErrorBoundary handles it     |
+| **`data` type**            | `TData \| undefined`        | `TData` (always defined)     |
+| **Works without Suspense** | ✅                          | ❌ needs `<Suspense>` parent |
+
+**Rule of thumb:** If data is required to render (e.g. course detail) → `useSuspenseQuery`. Optional/background data (e.g. notification count) → `useQuery`.
+
+---
+
+## useQuery vs useSuspenseQuery — In Code
+
+```tsx
+// useQuery — data can be undefined, you must check
+const { data, isPending, isError } = useQuery(opts);
+//      ^? Course | undefined
+
+// useSuspenseQuery — data is guaranteed, component is simpler
+const { data } = useSuspenseQuery(opts);
+//      ^? Course — never undefined
+```
+
+---
+
+## Suspense in TanStack Router
+
+You don't need to write `<Suspense>` or `<ErrorBoundary>` yourself — TanStack Router wires them up per route:
+
+```tsx
+export const Route = createFileRoute("/courses/$id")({
+  loader: ...,
+  pendingComponent: () => <Spinner />,   // = Suspense fallback
+  errorComponent: ({ error }) => ...,    // = ErrorBoundary fallback
+  component: CourseDetailPage,
+});
+```
+
+You can also set **defaults for all routes** in the router config:
+
+```tsx
+const router = createRouter({
+  routeTree,
+  defaultPendingComponent: () => <Spinner />,
+  defaultErrorComponent: ({ error }) => <p>Error: {error.message}</p>,
+});
+```
+
+Per-route settings override the defaults.
+
+---
+
 ## Prefetching
 
 TanStack Router can **prefetch** data when the user hovers over a link.
@@ -732,38 +839,10 @@ Combined with loaders + React Query: by the time the user clicks, the data is al
 
 ---
 
-## Pending & Error UI
-
-Each route can define what to show while loading or when something goes wrong:
-
-```tsx
-export const Route = createFileRoute("/courses/$id")({
-  loader: ({ context: { queryClient }, params }) =>
-    queryClient.ensureQueryData(courseQueryOptions(params.id)),
-
-  // Shown while loader is running
-  pendingComponent: () => <div>Loading course...</div>,
-
-  // Shown when loader throws
-  errorComponent: ({ error }) => (
-    <div className="text-red-600">Something went wrong: {error.message}</div>
-  ),
-
-  // Shown when notFound() is thrown
-  notFoundComponent: () => (
-    <div>Course not found. <Link to="/courses">Back to list</Link></div>
-  ),
-
-  component: CourseDetailPage,
-});
-```
-
----
-
 ### Task 4 — Loader + React Query (~10 min)
 
 1. **Add a loader to `courses/$id.tsx`**
-   - Use the query options generated by Kubb (e.g. `getCoursesIdQueryOptions`)
+   - Use the query options generated by Kubb (`getCoursesByIdQueryOptions`)
    - Call `queryClient.ensureQueryData(...)` in the loader with those options
    - In the component, use `useSuspenseQuery(...)` with the same query options
 
@@ -779,32 +858,19 @@ export const Route = createFileRoute("/courses/$id")({
 
 ---
 
-## How It All Fits Together — Mental Model
+## How Navigation Works — Mental Model
 
 What happens when a user clicks a `<Link>`?
 
 ```
-1. URL changes          /courses/123
-
-2. Route matching       Router walks the route tree
-                        → finds /courses/$id
-
-3. beforeLoad           Auth guard runs (if any)
-                        → redirect to /login if unauthorized
-
-4. loader               Data fetching starts
-                        → queryClient.ensureQueryData(...)
-
-5. pendingComponent     Shown while loader is running
-
-6. component renders    Data is ready, component mounts
-                        → Route.useParams() / useSuspenseQuery()
-
-7. React Query cache    Data is cached for next visit
-                        → return visit = instant, no fetch
+1. Navigate             → URL changes to /courses/123
+2. Match route          → Router finds the matching route: /courses/$id
+3. Run guard            → beforeLoad checks access (may redirect)
+4. Load data            → loader prefetches data into React Query cache
+5. Show pending UI      → pendingComponent is shown while loading
+6. Render page          → component renders with params + ready data
+7. Reuse cache later    → next visit may be instant, without refetch
 ```
-
-Every step is type-safe. Every step is configurable per route.
 
 ---
 
@@ -840,12 +906,16 @@ routes/courses/
 ├── route.tsx              ← /courses layout
 ├── index.tsx              ← /courses page
 ├── $id.tsx                ← /courses/$id page
-└── -components/           ← ignored by router!
-    ├── CourseCard.tsx      ← used only by courses routes
-    └── SemesterFilter.tsx
+├── -components/           ← ignored by router!
+│   ├── CourseCard.tsx
+│   └── SemesterFilter.tsx
+├── -hooks/
+│   └── useCourseFilters.ts
+└── -utils/
+    └── formatCredits.ts
 ```
 
-`-components/CourseCard.tsx` is **not** a route — it's a component that lives close to where it's used.
+Anything prefixed with `-` is **not** a route — it lives close to where it's used, but the router ignores it.
 
 ---
 
