@@ -379,7 +379,7 @@ Claude Code  ←→  MCP Server  ←→  External System
 }
 ```
 
-**Examples:** Context7 (live docs), Playwright (browser), GitHub (PRs/issues), Figma (designs)
+**Examples:** Context7 (live docs), Playwright (browser), GitHub (PRs/issues), Linear (issues), Figma (designs), Slack
 
 MCP turns Claude from "text in, text out" into an agent that can **interact with the world**.
 
@@ -528,6 +528,36 @@ npm install react-helper-utils
 | Hallucinated names that repeat across runs | **58 %** |
 
 _Source: UT San Antonio et al. — 576K code samples, 16 models, 205K unique fake packages_
+
+---
+
+## Claude Code — Extending with Plugins
+
+A **plugin** is a shareable package (directory with `.claude-plugin/plugin.json`) that can bundle:
+
+| Component | What it does | Standalone equivalent |
+|---|---|---|
+| **Skills** | Markdown instructions loaded into context | `.claude/skills/` |
+| **Hooks** | Shell commands on lifecycle events | `.claude/settings.json` |
+| **Slash Commands** | Prompt templates invoked via `/name` | `.claude/commands/` |
+| **MCP Servers** | External tool integrations (APIs, DB, …) | `.mcp.json` |
+| **Agents** | Custom sub-agent definitions | `.claude/agents/` |
+
+Standalone config = project-specific. **Plugin** = namespaced, versioned, installable from a marketplace.
+
+---
+
+## Plugins & Config in Trollo
+
+**Standalone config** (`.claude/` — project-specific, not a plugin):
+- **Hook** — auto-format via Biome after every file edit
+
+**Installed plugins** (from marketplace, shared across projects):
+- `superpowers` — guided workflows (planning, debugging, TDD, review)
+- `frontend-design` — high-quality UI generation
+- `context7` — live library documentation lookup
+- `code-review`, `feature-dev`, `code-simplifier`
+
 
 ---
 
