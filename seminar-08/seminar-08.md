@@ -6,7 +6,7 @@ paginate: true
 
 <!-- _class: lead -->
 
-# Seminar 07 — AI-Assisted Development
+# Seminar 08 — AI-Assisted Development
 
 ## PB138 — Basics of Web Development
 
